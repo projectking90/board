@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- mapper 태그 선언 -->
+<!-- namespace 속성값으로 [DAO 인터페이스명]이 오며 -->
+<!-- [DAO 인터페이스] 메소드명과 동일한 id 값을 소유한 태그를 내포하고 있다. -->
+<mapper namespace="com.naver.erp.BoardDAO">
+	<sql id="boardWhere">
+		<if test="(keyword1!=null and keyword1.length()>0) or (keyword2!=null and keyword2.length()>0)">
+			and (
+		</if>
+		<if test="keyword1!=null and keyword1.length()>0">
+			(
+				(upper(subject) like upper('%${keyword1}%'))
+				or (upper(writer) like upper('%${keyword1}%'))
+				or (upper(content) like upper('%${keyword1}%'))
+				or (upper(to_char(reg_date,'YYYY-MM-DD')) like upper('%${keyword1}%'))
+				or (upper(email) like upper('%${keyword1}%'))
+			)
+		</if>
+		<if test="(keyword1!=null and keyword1.length()>0) and (keyword2!=null and keyword2.length()>0)">
+			${orAnd}
+		</if>
+		<if test="keyword2!=null and keyword2.length()>0">
+			(
+				(upper(subject) like upper('%${keyword2}%'))
+				or (upper(writer) like upper('%${keyword2}%'))
+				or (upper(content) like upper('%${keyword2}%'))
+				or (upper(to_char(reg_date,'YYYY-MM-DD')) like upper('%${keyword2}%'))
+				or (upper(email) like upper('%${keyword2}%'))
+			)
+		</if>
+		<if test="(keyword1!=null and keyword1.length()>0) or (keyword2!=null and keyword2.length()>0)">
+			)
+		</if>
+		<!-- 만약 com.naver.erp.BoardSearchDTO 객체의 속성변수 date가 null이 아니고 -->
+		<!-- 배열변수의 개수가 0개보다크면 -->
+		<!-- * 체크박스 값이 저장되는 배열변수는 배열 객체는 있되 배열변수가 없을 수도 있으므로 -->
+		<!--   배열변수의 개수도 0보다 큰지 확인 -->
+		<if test="date!=null and date.length>0">
+			and
+			<!-- mybatis foreach 반복문 속성 설명 -->
+			<!-- collection="배열/List객체의 속성변수명" -->
+			<!-- imte="배열/List객체 안의 데이터를 저장할 지역변수명" -->
+			<!-- open="반복문 시작 전에 삽입할 문자" -->
+			<!-- close="반복문 끝난 후에 삽입할 문자" -->
+			<!-- separator="반복문에 의해 표현되는 Query 사이사이에 삽입될 Query 일부분" -->
+			<!-- index="반복문안에서 사용할 인덱스 번호 저장 변수명" -->
+			<foreach collection="date" item="date" open="(" separator=" or " close=")">
+				<if test="date.equals('오늘')">
+					to_char(reg_date, 'YYYY-MM-DD') = to_char(sysdate, 'YYYY-MM-DD')
+				</if>
+				<if test="date.equals('어제')">
+					to_char(reg_date, 'YYYY-MM-DD') = to_char(sysdate-1, 'YYYY-MM-DD')
+				</if>
+				<if test="date.equals('이번 달')">
+					to_char(reg_date, 'YYYY-MM') = to_char(sysdate, 'YYYY-MM')
+				</if>
+				<if test="date.equals('이번 달 이외')">
+					to_char(reg_date, 'YYYY-MM') != to_char(sysdate, 'YYYY-MM')
+				</if>
+			</foreach>
+		</if>
+		<if test="count!=null and count.length>0">
+			and
+			<foreach collection="count" item="count" open="(" separator=" or " close=")">
+				<if test="count.equals('100')">
+					readcount &gt;= ${count}
+				</if>
+			</foreach>
+		</if>
+	</sql>
+	
+	<!-- 
+		로그인 아이디, 암호의 존재 개수를 검색하는 select 문을 내포한 <select> 태그 선언
+		
+		<select> 태그 속성 설명
+		id="~" SQL 구문의 고유 아이디값 설정. DAO 클래스의 메소드 이름과 동일
+		parameterType="~" SQL 구문에 삽입될 외부 데이터의 자료형 설정
+		resultType="~" SQL 구문의 실행 후 리턴값 자료형 설정
+		
+		SQL 구문안의 #{HashMap객체키값명} 설명
+		키값에 대응하는 데이터가 문자열이면 자동으로 ''로 감싸 삽입 아니면 그대로 삽입
+		
+		SQL 구문안의 ${HashMap객체키값명} 설명
+		키값에 대응하는 데이터의 종류에 관게없이 그대로 삽입
+		예) 쿼리문이 그대로 사용될 경우 이용
+	 -->
+
+	<!-- 게시판 글 목록 총 개수 구하는  select 태그 선언-->
+	<select id='getBoardListAllCnt' parameterType="com.naver.erp.BoardSearchDTO" resultType="int">
+		select
+			count(*)
+		from board
+		where 1=1
+			<!-- <sql id="boardWhere" 태그 안에 삽입된 SQL 구문 삽입-->
+			<include refid="boardWhere"/>
+	</select>
+
+	<!-- 게시판 검색하는 select 문을 내포한 select 태그 선언 -->
+	<select id='getBoardList' parameterType="com.naver.erp.BoardSearchDTO" resultType="hashmap">
+		select *
+		from (select rownum as "RNUM", b.*
+				from (select
+						b_no||'' 		as "b_no"
+						,subject 		as "subject"
+						,writer 		as "writer"
+						,to_char(reg_date,'YYYY-MM-DD') "reg_date" 
+						,readcount||'' as "readcount"
+						,content 		as "content"
+						,pwd 			as "pwd"
+						,email 			as "email"
+						,group_no||'' 	as "group_no"
+						,print_no||'' 	as "print_no"
+						,print_level||'' as "print_level"
+					from board
+					where 1=1
+						<!-- <sql id="boardWhere" 태그 안에 삽입된 SQL 구문 삽입-->
+						<include refid="boardWhere"/>
+					order by group_no desc, print_no asc) b
+		<!-- 만약 키워드가 있으면 키워드가 where 절에 참여 -->
+		<!-- BoardSearchDTO 객체안의 keyword1 속성변수 안의 데이터를 -->
+		<!-- mybatis 문법으로 ${keyword1}형식으로 표현 -->
+		<!-- $를 붙여 꺼내면 ''없이 원본대로 그냥 나오고 -->
+		<!-- #를 붙여 꺼내면 문자열일 경우 ''가 자동으로 붙어나옴 -->
+		<!-- 현재 아래 SQL 구문에서는 '' 없이 나와야함으로 $를 써야함 -->
+		<![CDATA[
+				where rownum <= ${selectPageNo*rowCntPerPage})
+		where rnum >=${selectPageNo*rowCntPerPage-rowCntPerPage+1}
+		]]>
+	</select>
+	
+	<!-- 댓글쓰기 시 글의 출력 순서번호를 1씩 증가 시킴 -->
+	<update id='upPrintNo' parameterType="com.naver.erp.BoardDTO">
+		update board
+		set print_no = print_no+1
+		where
+			group_no = (select
+							group_no
+						from board
+						where
+							b_no = #{b_no})
+			and print_no > (select
+								print_no
+							from board
+							where
+								b_no = #{b_no})
+	</update>
+	
+	<!-- 게시판 입력하는 insert 태그 선언-->
+	<insert id='insertBoard' parameterType="com.naver.erp.BoardDTO">
+		insert into board
+		values(
+			(select nvl(max(b_no),0)+1 from board)
+			, #{subject}
+			, #{writer}
+			, sysdate
+			, 0
+			, #{content}
+			, #{pwd}
+			, #{email}
+			<if test="b_no!=0">
+				, (select group_no from board where b_no = #{b_no})
+				, (select print_no+1 from board where b_no = #{b_no})
+				, (select print_level+1 from board where b_no = #{b_no})
+			</if>
+			<if test="b_no==0">
+				, (select nvl(max(b_no),0)+1 from board)
+				, 0
+				, 0
+			</if>
+		)
+	</insert>
+	
+	<!-- 수정/삭제할 게시판의 존재 개수를 얻음 -->
+	<select id="getBoardCnt" parameterType="com.naver.erp.BoardDTO" resultType="int">
+		select
+			count(*)
+		from board
+		where
+			b_no = #{b_no}
+	</select>
+	
+	<!-- 수정/삭제할 게시판의 비밀번호 존재 개수를 얻음 -->
+	<select id="getPwdCnt" parameterType="com.naver.erp.BoardDTO" resultType="int">
+		select
+			count(*)
+		from board
+		where
+			b_no = #{b_no}
+			and pwd = #{pwd}
+	</select>
+	
+	<!-- 게시판 수정하는 update 태그 선언-->
+	<update id='updateBoard' parameterType="com.naver.erp.BoardDTO">
+		update board
+		set writer = #{writer}
+			, subject = #{subject}
+			, email = #{email}
+			, content = #{content}
+		where
+			b_no = #{b_no}
+			and pwd = #{pwd}
+	</update>
+	
+	<!-- 삭제할 게시판의 자식글 존개 개수를 얻음 -->
+	<select id="getChildCnt" parameterType="com.naver.erp.BoardDTO" resultType="int">
+		select
+			count(*)
+		from board
+		where
+			group_no = (select
+							group_no
+						from board
+						where
+							b_no = #{b_no})
+			and print_no > (select
+								print_no
+							from board
+							where
+								b_no = #{b_no})
+			and print_level > (select
+									print_level
+								from board
+								where
+									b_no = #{b_no})
+	</select>
+	
+	<!-- 삭제될 게시판 이후 글의 출력 순서번호를 1씩 감소 시킴 -->
+	<update id="downPrintNo"  parameterType="com.naver.erp.BoardDTO">
+		update board
+		set print_no = print_no-1
+		where
+			group_no = (select
+							group_no
+						from board
+						where
+							b_no = #{b_no})
+			and print_no > (select
+								print_no
+							from board
+							where
+								b_no = #{b_no})
+	</update>
+	
+	<!-- 게시판 삭제하는 delete 태그 선언-->
+	<delete id='deleteBoard' parameterType="com.naver.erp.BoardDTO">
+		delete from board
+		where
+			b_no = #{b_no}
+			and pwd = #{pwd}
+	</delete>
+	
+	<!-- 조회수 1 증가 하는 update 태그 선언 -->
+	<update id='updateReadcount'  parameterType="int">
+		update board
+		set readcount = readcount + 1
+		where
+			b_no = ${value}
+	</update>
+	
+	<!-- 1개의 게시판을 구하는  select 태그 선언 -->
+	<!-- 만약 parameterType이 int, String, double 같이 한개일 경우 -->
+	<!-- SQL 구문 안에서 표현하는 방법은 #{맘대로스펠링} 또는 ${맘대로스펠링} 가능 -->
+	<select id='getBoardDTO' parameterType="int" resultType="com.naver.erp.BoardDTO">
+		select
+			b_no 		as "b_no"
+			,subject 		as "subject"
+			,writer 		as "writer"
+			,to_char(reg_date,'YYYY-MM-DD') "reg_date" 
+			,readcount as "readcount"
+			,content 		as "content"
+			,pwd 			as "pwd"
+			,email 			as "email"
+			,group_no 	as "group_no"
+			,print_no 	as "print_no"
+			,print_level as "print_level"
+		from board
+		where
+			b_no = ${value}
+	</select>
+</mapper>

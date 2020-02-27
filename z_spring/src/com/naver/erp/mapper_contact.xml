@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- mapper 태그 선언 -->
+<!-- namespace 속성값으로 [DAO 인터페이스명]이 오며 -->
+<!-- [DAO 인터페이스] 메소드명과 동일한 id 값을 소유한 태그를 내포하고 있다. -->
+<mapper namespace="com.naver.erp.ContactDAO">
+	<!-- 연락처 삽입하는 insert 태그 선언 -->
+	<insert id='insertContact' parameterType="com.naver.erp.ContactDTO">
+		insert into contact
+		values(
+			(select nvl(max(contact_no),0)+1 from contact)
+			, #{contact_name}
+			, #{phone}
+		)
+	</insert>
+	
+	<!-- 사업분야 삽입하는 insert 태그 선언 -->
+	<insert id='insertContactBusinessArea' parameterType="string">
+		insert into contact_business_area
+		values(
+			(select max(contact_no) from contact)
+			, #{value}
+		)
+	</insert>
+</mapper>

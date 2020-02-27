@@ -1,0 +1,46 @@
+create table contact(
+    contact_no  number(5)   -- index
+    , contact_name  varchar2(30) not null    -- 성명
+    , phone varchar2(30)    -- 연락처    
+    , reg_date  date    default sysdate -- 등록일
+    , primary key(contact_no)
+);
+
+create table code_business_area(
+    business_area_code  number(5)   -- index
+    , business_area_name    varchar2(30)    not null    -- 분야명
+    , primary key(business_area_code)       
+);
+
+insert into code_business_area
+values(
+    1,
+    'IT'
+);
+
+insert into code_business_area
+values(
+    2,
+    '통신'
+);
+
+insert into code_business_area
+values(
+    3,
+    '금융'
+);
+
+insert into code_business_area
+values(
+    4,
+    '기타'
+);
+
+create table contact_business_area(
+    contact_no  number(5)   not null    -- contact 테이블의 index
+    , business_area_code    number(5)   not null    -- code_business_area 테이블의 index
+    , foreign key(contact_no) references  contact(contact_no)         
+    , foreign key(business_area_code) references  code_business_area(business_area_code)
+);                                                       
+
+commit;

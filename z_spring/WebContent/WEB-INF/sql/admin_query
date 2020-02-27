@@ -1,0 +1,17 @@
+create table admin(
+    admin_no    number(3)                       -- 관리자 번호
+    , admin_id  varchar2(20)    not null unique -- 관리자 아이디
+    , pwd   varchar2(20)    not null            -- 암호
+    , primary key(admin_no)
+);
+
+insert into admin values(1, 'abc', '123');
+
+
+select * from admin;
+
+update admin
+set pwd='1234'
+where admin_no=1;
+
+commit;
